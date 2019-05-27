@@ -151,19 +151,50 @@ function updateMousePosition(event)
 	}
 }
 
+function getIntersectionsUnderMouse(x=mouse_x,y=mouse_y)
+{
+	//Return a list of all intersections found under the mouse
+	const raycaster=new THREE.Raycaster()
+	//Return clicked item, else return undefined
+	const mouse    =new THREE.Vector2(x, y)
+	raycaster.setFromCamera(mouse, camera)
+	const intersects=raycaster.intersectObjects(scene.children, true)
+	return intersects
+}
+function getIntersectUnderMouse(x=mouse_x,y=mouse_y)
+{
+	//Get a singular intersection or else return undefined
+	const intersections=getIntersectionsUnderMouse(x,y)
+	if(intersections.length)
+	{
+		return intersections[0]
+	}
+	else
+	{
+		console.warn("No intersections were found!")
+		return undefined//There are no intersections
+	}
+}
+function get3dPositionUnderMouse(x=mouse_x,y=mouse_y)
+{
+	const intersection=getIntersectUnderMouse(x,y)
+	if(intersection===undefined)
+	{
+		console.warn("get3dPositionUnderMouse failed because no intersections were found; returning undefined!")
+		return undefined
+	}
+	else
+	{
+		return intersection.point
+	}
+}
 function getItemUnderCursor()//Give it a mouse event
 {
 	console.assert(arguments.length===0,'Wrong number of arguments.')
 	if(!mouse_in_renderer)
 		return undefined
 	assert.rightArgumentLength(arguments)
-	const raycaster = new THREE.Raycaster();
-	//Return clicked item, else return undefined
-	const mouse = new THREE.Vector2()
-	mouse.x=mouse_x
-	mouse.y=mouse_y
-	raycaster.setFromCamera(mouse, camera)
-	const intersects = raycaster.intersectObjects(scene.children, true)
+	const intersects=getIntersectionsUnderMouse()
 	if(intersects.length > 0)
 	{
 		const threeObject=intersects[0].object
@@ -200,11 +231,31 @@ function itemByIDIsDraggable(itemID)
 	return keyPath.exists(scene,['transitions','drag',itemID])
 }
 
+async function getPositionByMouseDown()
+{
+	//Returns something of the form {x,y,z} where x,y,z are numbers
+	return await new Promise(resolve=>
+							 {
+								 mouseDownHooks.push((event)=>
+													 {
+														 updateMousePosition(event)
+														 resolve(get3dPositionUnderMouse())
+													 })
+							 })
+}
+
 let mousedownItem
+const mouseDownHooks=[]
 function mousedown(event)
 {
+	if(mouseDownHooks.length)
+	{
+		mouseDownHooks.pop()(event)
+		return
+	}
 	updateMousePosition(event)
 	mousedownItem=getItemUnderCursor()
+
 }
 
 function mouseup(event)
@@ -320,8 +371,41 @@ function triggerLeaveTransition(leaveItemID)
 }
 
 
+async function getItemPairByDragging()
+{
+	//Hook into triggerDragTransition to get two items (not item ID's) referenced by
+	return await new Promise(resolve=>{triggerDragTransition_Hooks.push(resolve)})
+}
+async function getItemByClicking()
+{
+	while(true)
+	{
+		const [x,y]=await getItemPairByDragging()
+		if(x===y)
+		{
+			return x//or return y, makes no difference
+		}
+		alert("Please click an item (aka drag an item onto itself); do not drag from one item to another. (This alert was called from function getItemByClicking, in engine.js)")
+	}
+}
+async function getItemIdPairByDragging()
+{
+	return (await getItemPairByDragging()).map(x=>x.ID)
+}
+async function getItemIdByClicking()
+{
+	return (await getItemByClicking()).ID
+}
+
+
+const triggerDragTransition_Hooks=[]//Functions added here will be triggered instead of triggerDragTransition's body when they exist
 function triggerDragTransition(mousedownItem,mouseupItem)
 {
+	if(triggerDragTransition_Hooks.length)
+	{
+		triggerDragTransition_Hooks.pop()([mousedownItem, mouseupItem])
+		return
+	}
 	console.assert(arguments.length===2,'Wrong number of arguments.')
 	let cursor=tween.delta.scene.transitions.drag
 	if(mousedownItem.ID in cursor && mouseupItem.ID in cursor[mousedownItem.ID])
@@ -581,7 +665,7 @@ function requestTween(delta,time=0,ignoreBlocking=false,isAuto=false)
 	if(delta.sound && typeof delta.sound==='string')
 		playSound(config.sounds[delta.sound])
 	deltas.pour(tween._initialDelta,{scene:{transitions:{auto:null}}})//This saves us from having to rewrite 'scene	transitions	auto	null' all over the place (otherwise, if we enter some delta with auto, by default (if that delta doesnt set scene	transitions	auto	null), we'll be stuck there forever.)
-	deltas.pour(tween._targetDelta,{scene:{transitions:{auto:null}}})
+	deltas.pour(tween._targetDelta ,{scene:{transitions:{auto:null}}})
 	tween.time=time
 	tween.delta=delta
 }
@@ -595,7 +679,7 @@ function updateItemIDUnderCursor()//Can be cached with respect to state and curs
 	{
 		//We shouldn't be processing this data while we're tweening
 		const currentItemUnderCursor=getItemUnderCursor()
-		console.assert(currentItemUnderCursor===undefined || 'ID' in currentItemUnderCursor,'Whoops, some internal error here if youre reading this...ID should ALWAYS be a parameter of every item beacuse thats how it knows what it is. (How it knows which key in "items" to find itself)')
+		console.assert(currentItemUnderCursor  ===undefined || 'ID' in currentItemUnderCursor,'Whoops, some internal error here if youre reading this...ID should ALWAYS be a parameter of every item beacuse thats how it knows what it is. (How it knows which key in "items" to find itself)')
 		const currentItemIDUnderCursor=currentItemUnderCursor&&currentItemUnderCursor.ID//If the item is undefined, make the ID undefined. Else, set it to the item's ID.
 		console.assert(currentItemIDUnderCursor===undefined || typeof currentItemIDUnderCursor ==='string','Oops...if youre reading this you need to figure out why ID; (a RESERVED parameter) was allowed to be turned into a non-string')
 		if(itemIDUnderCursor!==currentItemIDUnderCursor)
