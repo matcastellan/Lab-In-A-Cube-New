@@ -65,7 +65,7 @@ function Multiplexer({schema})
 {
 	const [selectedOption, setSelectedOption]=useState(null)
 	if(!schema)
-		return <div></div>
+		return <div/>
 	const options=Object.keys(schema).map(key=>({value: key, label: key}))
 	return <div>
 		<Select style={{width: '100%'}} value={{label: selectedOption}}
@@ -555,6 +555,15 @@ const tools={
 		alert("Moving the item called '"+itemId+"' to position:\n"+window.djson.stringify(position))
 		window.addLinesToConfigString(['deltas',deltaId,itemId,'transform','position','x '+position.x,'y '+position.y,'z '+position.z].join('\t'))
 	},
+	async add()
+	{
+		const itemType=await selectionDialog("What kind of item do you want to add?",'simpleBeaker mesh'.split(' '))
+		const itemName=itemType+"_"+window.randomCharacters(3)
+		console.assert(!(itemName in window.config.items),'Hash collision! This is a highly improbable, but technically possible error')
+		window.items[itemName]=window.modules[itemType](itemName)//This code was borrowed from config.js. We should refactor this to make a unified method for adding items.
+		window.addLinesToConfigString(['items',itemName,itemType].join('\t'))
+		window.requestRender()
+	},
 	async restart()
 	{
 		if(window.confirm("Are you sure you want to restart the current game?"))
@@ -637,7 +646,7 @@ function App()
 
 	return <div style={{display: 'flex', flexDirection: 'horizontal', width: '25%', height: '100%'}}>
 		<div style={{padding: 10, border: 10, backgroundColor: 'rgba(255,255,255,.3)', flexGrow: 4, display: 'flex', flexDirection: 'column', overflowY: 'scroll', pointerEvents: 'auto'}}>
-			<h1 style={{color: 'white', textAlign: 'center'}}>Lab<sup>3</sup></h1>
+			<h1 style={{color: 'white', textAlign: 'center'}}>Lab<sup>3</sup></h1><br/><h4>By Ryan Burgert</h4>
 			<br/>
 			{/*<ExpansionPanel style={{borderRadius:30, backgroundColor:'rgba(0,0,0,0)'}}>*/}
 				{/*<ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>*/}
@@ -660,9 +669,9 @@ function App()
 			<Button color="primary"   onClick={addItemDialogs                     } helptext="(Documentation goes here)"> Add Item        </Button>
 			<Button color="primary"   onClick={addDeltaDialog                     } helptext="(Documentation goes here)"> Add Delta       </Button>
 			<Button color="primary"   onClick={toolsDialog                        } helptext="(Documentation goes here)"> Tools           </Button>
-			<Button color="primary"   onClick={viewState                          } helptext="(Documentation goes here)"> View State       </Button>
+			<Button color="primary"   onClick={viewState                          } helptext="(Documentation goes here)"> View State      </Button>
 			<Button color="primary"   onClick={handlePopState                     } helptext="(Documentation goes here)"> Pop State       </Button>
-			<Button color="primary"   onClick={handlePushState                    } helptext="(Documentation goes here)"> Push State       </Button>
+			<Button color="primary"   onClick={handlePushState                    } helptext="(Documentation goes here)"> Push State      </Button>
 			{/*</ExpansionPanel>*/}
 			<br/>
 			<div style={{width:'100%'}}>

@@ -242,6 +242,7 @@ let modules={
 		return item
 	},
 }
+window.modules=modules
 modules=proxies.argumentCountChecker(modules)
 modules=proxies.tryGetter(modules,()=>modules.mesh)
 
