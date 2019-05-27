@@ -517,7 +517,54 @@ const tools={
 				}
 			}
 		}))
-	}
+	},
+	async who()
+	{
+		alert("Please click an item, and then I'll tell you it's name")
+		alert("The item you clicked is called '"+await window.getItemIdByClicking()+"'");
+	},
+	async where()
+	{
+		alert("Please click somewhere, and I'll tell you where you clicked")
+		const position=await window.getPositionByMouseDown()
+		if(!position)
+		{
+			alert("You didn't click on an item, so you didn't click on a specific position.")
+		}
+		else
+		{
+			alert("You clicked at position:\n"+window.djson.stringify(position))
+		}
+	},
+	async when()
+	{
+		alert("The most recent delta is called '"+window.getMostRecentDeltaId()+"'")
+	},
+	async move()
+	{
+		alert("Please click the item that you would like to move")
+		const itemId=await window.getItemIdByClicking()
+		alert("Please click on where you would like to move this item to\n(This item is called '"+itemId+"')")
+		const position=await window.getPositionByMouseDown()
+		const deltaId=window.getMostRecentDeltaId()
+		if(!position)
+		{
+			alert("You didn't click on an item, so you didn't click on a specific position. Cancelled moving item '"+itemId+"'")
+			return
+		}
+		alert("Moving the item called '"+itemId+"' to position:\n"+window.djson.stringify(position))
+		window.addLinesToConfigString(['deltas',deltaId,itemId,'transform','position','x '+position.x,'y '+position.y,'z '+position.z].join('\t'))
+	},
+	async restart()
+	{
+		if(window.confirm("Are you sure you want to restart the current game?"))
+		{
+			window.setStateFromDeltaIDArray(['initial'])
+			window.requestRender()
+		}
+	},
+
+
 }
 
 function toolsDialog()
