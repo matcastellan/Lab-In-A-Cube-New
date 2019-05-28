@@ -50,6 +50,7 @@ const geometries={
 	box:    new THREE.BoxGeometry(1  , 1  , 1  , 10, 10, 10),
 	cube:   new THREE.BoxGeometry(700, 700, 700, 1 , 1 , 1 ),
 	sphere: new THREE.IcosahedronGeometry(1, 3),
+	plane:  new THREE.PlaneGeometry( 1,1, 10,10),
 }
 
 const sounds={}

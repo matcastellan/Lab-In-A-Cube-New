@@ -281,7 +281,7 @@ function getItemSchemas()
 
 mesh,boxItem,simpleBeaker
 	texture default:TEXTURES,default
-	geometry box:GEOMETRIES,box,cube,sphere
+	geometry box:GEOMETRIES,box,cube,sphere,plane
 	parent scene:ITEMS,scene
 	visible true
 	material

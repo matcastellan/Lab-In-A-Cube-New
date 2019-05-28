@@ -414,9 +414,8 @@ async function selectionDialog(promptText="",selection)
 
 	//Will be replaced by HTML or something later
 	console.assert(selection.length)
-	console.assert(false,"LOOK AT Meeeeeee")
 	console.assert(arguments.length===2,'Wrong number of arguments')
-	let out=await prompt(promptText+'\nPlease choose from these options (case sensitive):\n'+selection)
+	let out=await asyncPrompt(promptText+'\nPlease choose from these options (case sensitive):\n'+selection)
 	if(selection.includes(out))
 		return out
 	if(!out)
@@ -424,7 +423,7 @@ async function selectionDialog(promptText="",selection)
 	return selectionDialog(promptText,selection)
 }
 
-async function prompt(...args)
+async function asyncPrompt(...args)
 {
 	return window.prompt(...args)
 }
@@ -446,9 +445,25 @@ async function textDialog({promptText='',condition=text=>text!=undefined,cancell
 		}
 		else
 		{
-			await onInvalid()
+			await onInvalid(text)
 		}
 	}
+}
+
+window.numberDialog=async function({promptText='',min=-1/0,max=1/0}={})
+{
+	function isNumeric(text)
+	{
+		return !isNaN(Number(text))
+	}
+	function isValid(text)
+	{
+		if(!isNumeric(text))
+			return false
+		const n=Number(text)
+		return n<=max && n>=min
+	}
+	return Number(await textDialog({condition:isValid, promptText:promptText+'\n'+'Please choose a number between '+min+' and '+max}))
 }
 
 function displayHelp(help)
@@ -499,7 +514,7 @@ window.deltaIdIsACheckpoint=function(deltaId)
 	console.assert(arguments.length===1,'Wrong number of arguments')
 	return deltaId.startsWith(checkpointDeltaIdPrefix)
 }
-window.getAllCheckpointDeltaIds=function()
+window.getAllCheckpointDeltaIds    =function()
 {
 	console.assert(arguments.length===0,'Wrong number of arguments')
 	return [...window.getAllDeltaIds().filter(window.deltaIdIsACheckpoint)]
@@ -511,32 +526,36 @@ window.getCheckpointNameFromDeltaId=function(deltaId)
 	console.assert(window.deltaIdIsACheckpoint(deltaId),deltaId+' is NOT a checkpoint!')
 	return deltaId.substr(checkpointDeltaIdPrefix.length)
 }
-window.getAllCheckpointNames=function()
+window.getAllCheckpointNames       =function()
 {
 	return window.getAllCheckpointDeltaIds().map(window.getCheckpointNameFromDeltaId)
 }
-window.checkpointExists=function(checkpointName)
+window.checkpointExistsByName      =function(checkpointName)
 {
 	return window.getAllCheckpointNames().includes(checkpointName)
 }
-window.addCheckpoint=function(checkpointName,stateDeltaIdStack=window.getSimplifiedStateDeltaIdStack())
+window.addCheckpoint               =function(checkpointName,stateDeltaIdStack=window.getSimplifiedStateDeltaIdStack())
 {
 	//Capture the current state as a special kind of delta called a 'checkpoint', as an inheritance of the current delta stack
 	console.assert(arguments.length===2,'Wrong number of arguments')
 	console.assert(typeof checkpointName==='string')
 	const checkpointDeltaId=checkpointDeltaIdPrefix+checkpointName
 	console.assert(!(checkpointDeltaId in window.config.deltas),'Checkpoint deltaId is already taken! checkpointDeltaId='+JSON.stringify(checkpointDeltaId))
-	window.addLinesToConfigString(['deltas',checkpointDeltaId,['inherit','initial',...stateDeltaIdStack].join(' ')].join('\t'))//We probably have an extra 'initial' at the beginning of the inheritance...this is OK. The delta engine doesn't care.
+	let line1=['deltas',checkpointDeltaId,['inherit','initial',...stateDeltaIdStack].join(' ')].join('\t')
+	let line2=['deltas',checkpointDeltaId,['overlay','text',...stateDeltaIdStack].join(' ')].join('\t')
+	window.addLinesToConfigString([line1,line2].join('\n'))//We probably have an extra 'initial' at the beginning of the inheritance...this is OK. The delta engine doesn't care.
 }
-window.goToCheckpointByName=function(checkpointName)
+window.goToCheckpointByName        =function(checkpointName)
 {
 	console.assert(typeof checkpointName==='string')
-	console.assert(window.checkpointExists(checkpointName),'Checkpoint "'+checkpointName+'" doesnt exist!')
+	console.assert(window.checkpointExistsByName(checkpointName), 'Checkpoint "'+checkpointName+'" doesnt exist!')
 	let checkpointDeltaId=window.checkpointNameToDeltaId(checkpointName)
 	window.pushDeltaIDToStateStack(checkpointDeltaId)
 	window.setStateFromDeltaIDArray(['initial',checkpointDeltaId])
 	window.requestRender()
 }
+
+window.selectCheckpoint=function(){}//TODO implement this
 
 const tools={
 	async pour()
@@ -650,17 +669,20 @@ const tools={
 		window.requestRender()
 
 		//Choose initial position
-		alert("Please click on where you would like to move this item to\n(This item is called '"+itemId+"')")
-		const position=await window.getPositionByMouseDown()
-		const deltaId='initial'
-		if(!position)
+		if(window.confirm("Would you like to choose where to put this object now?"))
 		{
-			alert("You didn't click on an item, so you didn't click on a specific position. Cancelled moving item '"+itemId+"'")
-		}
-		else
-		{
-			// alert("Moving the item called '"+itemId+"' to position:\n"+window.djson.stringify(position))
-			window.addLinesToConfigString(['deltas',deltaId,itemId,'transform','position','x '+position.x,'y '+position.y,'z '+position.z].join('\t'))
+			alert("Please click on where you would like to move this item to\n(This item is called '"+itemId+"')")
+			const position=await window.getPositionByMouseDown()
+			const deltaId='initial'
+			if(!position)
+			{
+				alert("You didn't click on an item, so you didn't click on a specific position. Cancelled moving item '"+itemId+"'")
+			}
+			else
+			{
+				// alert("Moving the item called '"+itemId+"' to position:\n"+window.djson.stringify(position))
+				window.addLinesToConfigString(['deltas',deltaId,itemId,'transform','position','x '+position.x,'y '+position.y,'z '+position.z].join('\t'))
+			}
 		}
 		window.refreshPage()//Apply all missing things to the item like textures etc
 	},
@@ -674,7 +696,12 @@ const tools={
 	async mark()
 	{
 		//Mark a checkpoint
-		const checkpointName=await textDialog('What would you like to call this checkpoint?',{condition:window.isNamespaceable})
+		const checkpointName=await textDialog({promptText:'What would you like to call this checkpoint?',condition:window.isNamespaceable})
+		if(checkpointName==null)
+		{
+			alert('Cancelled marking checkpoint')
+			return
+		}
 		window.addCheckpoint(checkpointName)
 		alert("Added checkpoint '"+checkpointName+"'")
 	},
@@ -689,10 +716,67 @@ const tools={
 	async trans()
 	{
 		//Add a transition to a checkpoint, or create a new checkpoint and transition to that instead
-		alert('Please select ')
-	}
+		const checkpointName = await textDialog({promptText:'Please enter the name of the checkpoint you would like to transition to.\nExisting checkpoints: '+window.getAllCheckpointNames().join(', ')})
+		// noinspection EqualityComparisonWithCoercionJS
+		if(checkpointName==undefined)
+			return
+		if(!window.checkpointExistsByName(checkpointName))
+		{
+			if(window.confirm('Checkpoint \''+checkpointName+'\' doesnt exist, would you like to create a new one?'))
+			{
+				window.addCheckpoint(checkpointName)
+			}
+			else
+			{
+				alert("Cancelled creating transition")
+				return
+			}
+		}
+		const transitionTime=await window.numberDialog({promptText:'How many seconds should this transition take to animate?',min:0,max:10})
 
+		alert('Please either click an object or drag one object onto another in the same way you would like this transition to run')
+		const [fromItemId,toItemId]=await window.getItemIdPairByDragging()
 
+		const checkpointDeltaId=window.checkpointNameToDeltaId(checkpointName)
+		const currentDeltaId   =window.getMostRecentDeltaId()
+
+		window.addLinesToConfigString(['deltas',currentDeltaId,'scene','transitions','drag',fromItemId,toItemId,'delta '+checkpointDeltaId,'time '+transitionTime].join('\t'))
+
+		if(window.confirm('Would you like to go to this checkpoint now?\n(To checkpoint \''+checkpointName+'\')'))
+		{
+			window.goToCheckpointByName(checkpointName)
+			alert('You are now in checkpoint \''+checkpointDeltaId+'\'')
+		}
+	},
+	// async fill()
+	// {
+	// 	//Meant for simpleBeaker items
+	// 	alert("Please click a simpleBeaker item")
+	// 	const itemId=await window.getItemIdByClicking()
+	// 	if(window.config.items[itemId]!=='simpleBeaker')
+	// 	{
+	// 		alert('Sorry, but we had to cancel using the fill tool. The fill tool refers to the fill of liquid in a simpleBeaker item. However, you clicked an item called \''+itemId+'\', which is not a simpleBeaker. ')
+	// 		return
+	// 	}
+	// 	const fillTool=await selectionDialog("What would you like to change about this item's fill?", 'color', 'level')
+	// 	if(!fillTool)
+	// 	{
+	// 		alert('Cancelled using the fill tool')
+	// 		return
+	// 	}
+	// 	if(fillTool==='color')
+	// 	{
+	//
+	// 	}
+	// 	else if(fillTool==='level')
+	// 	{
+	//
+	// 	}
+	// 	else
+	// 	{
+	// 		alert('Oops, something must have went wrong in the fill tool\'s code...this should be impossible')
+	// 	}
+	// }
 }
 
 function toolsDialog()
@@ -742,8 +826,8 @@ function handlePushState()
 			return
 		}
 		window.pushDeltaIDToStateStack(deltaID)
-			window.setStateFromDeltaIDArray(window.getSimplifiedStateDeltaIdStack())
-			window.requestRender()
+		window.setStateFromDeltaIDArray(window.getSimplifiedStateDeltaIdStack())
+		window.requestRender()
 	}
 	helper()
 }

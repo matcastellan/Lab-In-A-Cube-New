@@ -1,3 +1,58 @@
+let defaultConfig=`preview	height 75	type djson	mode sublime	numbers true
+preview	height 75	type djson	mode sublime	numbers true
+
+~default_imports
+	 Import geometries
+	geometries	simpleBeakerFluid ./Assets/Models/SimpleBeaker/Fluid.obj
+	geometries	simpleBeakerBeaker ./Assets/Models/SimpleBeaker/Beaker.obj
+	geometries	dog ./Assets/dog.obj
+	geometries	flask ./Assets/flask.obj
+	 Import textures
+	textures	dog ./Assets/dog.jpg
+	textures	weird ./Assets/weird.jpg
+	textures	blank ./Assets/blank.png
+	 Import sounds
+	sounds	woof ./Assets/Sounds/Woof.mp3
+	sounds	nyan ./Assets/Sounds/Nyan.mp3
+	sounds	sadness ./Assets/Sounds/Sadviolin.mp3
+
+~default_light
+	items	l1,l2,l3,l4,l5,l6 light
+	deltas	initial	l1	position	y 10
+	deltas	initial	l2	position	x 10	y 10	z -6
+	deltas	initial	l3	position	x -10	y 10	z -6
+	deltas	initial	l1,l2,l3	intensity .4	color	b 0.6	g 0.4
+	deltas	initial	l1			intensity 1
+	deltas	initial	l4			intensity .3	position	z 10	x 7	y 2
+	deltas	initial	l5			intensity .3	position	z 10	x -7	y 2
+	deltas	initial	l6			intensity .3	position	z 10	y 0	x 0
+	
+
+~default_camera
+	deltas	initial	camera	transform	position	x  00	y 05	z 25
+	deltas	initial	camera	transform	rotation	x -10	y 00	z 00
+	deltas	initial	camera	fov 50
+
+~default_table
+	items	table_bottom,table_top mesh
+	deltas	initial	table_bottom,table_top	geometry plane
+	deltas	initial	table_bottom,table_top	transform	rotation	x -90
+	deltas	initial	table_bottom,table_top	transform	scale	overall 30
+	deltas	initial	table_bottom	transform	position	y -2
+	deltas	initial	table_top		transform	position	y -1.995	 <-- Place the top of the table (which shows the grid) slightly above the 
+	deltas	initial	table_bottom	material	modes	standard	color						r .5		g 0.5	b 0.5
+	deltas	initial	table_top		material	modes	standard	wireframe true	emissive	r -0.7	g 0.1	b 1.3
+
+~default_sky
+	deltas	initial	sky	luminance 1.1
+	deltas	initial	sky	sunX 0.8
+	deltas	initial	sky	sunY 0.3
+	deltas	initial	sky	mieDirectionalG 0.6
+	deltas	initial	sky	mieCoefficient -0.195
+
+~default_checkpoint
+	deltas	checkpoint.initial	inherit initial
+`
 function load_config(url)
 {
 	getRequest(url,response=>
@@ -82,21 +137,6 @@ function simplifiedConcattedDjsons(djsonString)
 	return djsonString
 }
 
-let defaultConfig=`preview	height 80	type djson	mode sublime	numbers true
-geometries	simpleBeakerFluid ./Assets/Models/SimpleBeaker/Fluid.obj
-geometries	simpleBeakerBeaker ./Assets/Models/SimpleBeaker/Beaker.obj
-geometries	dog ./Assets/dog.obj
-geometries	flask ./Assets/flask.obj
-textures	dog ./Assets/dog.jpg
-textures	weird ./Assets/weird.jpg
-textures	blank ./Assets/blank.png
-sounds	woof ./Assets/Sounds/Woof.mp3
-sounds	nyan ./Assets/Sounds/Nyan.mp3
-sounds	sadness ./Assets/Sounds/Sadviolin.mp3
-
-items	pointLight light
-deltas	initial	pointLight	position	z 10	y 10
-`
 
 function getConfigStringFromLocalStorage()
 {
@@ -271,7 +311,7 @@ function reloadAssetsFromConfig()
 				{
 					items[itemName]=modules[itemType](itemName)//Load all the items
 					console.assert(is_object(items[itemName]), 'A mistake was made in the code for the module '+repr(itemType)+
-						', detected while creting item '+repr(itemName)+
+						', detected while creating item '+repr(itemName)+
 						'. All items are supposed to be pure objects, because thats the way deltas apply changes (to pure object trees).'+
 						'Please note that this is NOT a config error, this is a javascript error: blame the programmer of the '+repr(itemType)+' module.'+
 						'\nFor debugging purposes, heres a the object returned by the module: items['+repr(itemName)+']===', items[itemName])
