@@ -560,8 +560,10 @@ window.selectCheckpoint=function(){}//TODO implement this
 const tools={
 	async pour()
 	{
-		const firstItem =await selectionDialog("Which item would you like to pour stuff from?",window.allItemIdsWithTransform())
-		const secondItem=await selectionDialog("Which item would you like to pour stuff into?",window.allItemIdsWithTransform())
+		alert("Please click and drag from the beaker you wish to pour from to the beaker you wish to pour into")
+		const [firstItem,secondItem]=await window.getItemIdPairByDragging()
+		// const firstItem =await selectionDialog("Which item would you like to pour stuff from?",window.allItemIdsWithTransform())
+		// const secondItem=await selectionDialog("Which item would you like to pour stuff into?",window.allItemIdsWithTransform())
 		const pourDeltas_prefix=deltaDialog("What should the new animation sequence be called?").trim()
 		alert("Implement pouring from "+firstItem+" to "+secondItem)
 		let originalFirstItemRotation =window.deltas.soaked(window.items[firstItem ], {transform: {rotation: {/*x: null, y: null, */z: null}}})
