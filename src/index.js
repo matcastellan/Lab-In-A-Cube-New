@@ -411,15 +411,44 @@ function handleHideEditorGui()
 
 async function selectionDialog(promptText="",selection)
 {
+
 	//Will be replaced by HTML or something later
 	console.assert(selection.length)
+	console.assert(false,"LOOK AT Meeeeeee")
 	console.assert(arguments.length===2,'Wrong number of arguments')
-	let out=prompt(promptText+'\nPlease choose from these options (case sensitive):\n'+selection)
+	let out=await prompt(promptText+'\nPlease choose from these options (case sensitive):\n'+selection)
 	if(selection.includes(out))
 		return out
 	if(!out)
 		return null
 	return selectionDialog(promptText,selection)
+}
+
+async function prompt(...args)
+{
+	return window.prompt(...args)
+}
+
+// noinspection EqualityComparisonWithCoercionJS
+async function textDialog({promptText='',condition=text=>text!=undefined,cancellable=true,asyncMethod=prompt,onInvalid=async text=>alert(`Sorry, the input '${text}' isn't allowed...please try again`)}={})
+{
+	while(true)
+	{
+		const text=await asyncMethod(promptText)
+		// noinspection EqualityComparisonWithCoercionJS
+		if(cancellable&&text==undefined)
+		{
+			return undefined//User hit cancel or something
+		}
+		if(condition(text))
+		{
+			return text
+		}
+		else
+		{
+			await onInvalid()
+		}
+	}
 }
 
 function displayHelp(help)
@@ -429,10 +458,10 @@ function displayHelp(help)
 
 function Button(props)
 {
-	let out=<MaterialButton style={{margin:1,fontWeight:'bold'}}
-							  variant="contained"
-							  size="small"
-							  {...props}>
+	let out=<MaterialButton style={{margin: 1, fontWeight: 'bold'}}
+							variant="contained"
+							size="small"
+							{...props}>
 			{props.children}
 		</MaterialButton>
 	if(props.helpLabel||props.helptext)
@@ -447,14 +476,64 @@ function Button(props)
 				{props.helpLabel || "Help"}
 			</h3>
 		</div>
-		out=<Tooltip title={title}
-						   placement="right" interactive>
+		out=<Tooltip title={title} placement="right" interactive>
 			{out}
 		</Tooltip>
 	}
 	return out
 }
 
+const checkpointDeltaIdPrefix='checkpoint.'
+window.getAllDeltaIds=function()
+{
+	console.assert(arguments.length===0,'Wrong number of arguments')
+	return Object.keys(window.config.deltas)
+}
+window.checkpointNameToDeltaId=function(checkpointName)
+{
+	return checkpointDeltaIdPrefix+checkpointName
+}
+window.deltaIdIsACheckpoint=function(deltaId)
+{
+	console.assert(typeof deltaId==='string')
+	console.assert(arguments.length===1,'Wrong number of arguments')
+	return deltaId.startsWith(checkpointDeltaIdPrefix)
+}
+window.getAllCheckpointDeltaIds=function()
+{
+	console.assert(arguments.length===0,'Wrong number of arguments')
+	return [...window.getAllDeltaIds().filter(window.deltaIdIsACheckpoint)]
+}
+window.getCheckpointNameFromDeltaId=function(deltaId)
+{
+	console.assert(arguments.length===1,'Wrong number of arguments')
+	console.assert(typeof deltaId==='string')
+	console.assert(window.deltaIdIsACheckpoint(deltaId),deltaId+' is NOT a checkpoint!')
+	return deltaId.substr(checkpointDeltaIdPrefix.length)
+}
+window.getAllCheckpointNames=function()
+{
+	return window.getAllCheckpointDeltaIds().map(window.getCheckpointNameFromDeltaId)
+}
+window.checkpointExists=function(checkpointName)
+{
+	return window.getAllCheckpointNames().includes(checkpointName)
+}
+window.addCheckpoint=function(checkpointName,stateDeltaIdStack=window.getSimplifiedStateDeltaIdStack())
+{
+	//Capture the current state as a special kind of delta called a 'checkpoint', as an inheritance of the current delta stack
+	console.assert(arguments.length===2,'Wrong number of arguments')
+	console.assert(typeof checkpointName==='string')
+	const checkpointDeltaId=checkpointDeltaIdPrefix+checkpointName
+	console.assert(!(checkpointDeltaId in window.config.deltas),'Checkpoint deltaId is already taken! checkpointDeltaId='+JSON.stringify(checkpointDeltaId))
+	window.addLinesToConfigString(['deltas',checkpointDeltaId,['inherit','initial',...stateDeltaIdStack].join(' ')].join('\t'))//We probably have an extra 'initial' at the beginning of the inheritance...this is OK. The delta engine doesn't care.
+}
+window.goToCheckpointByName=function(checkpointName)
+{
+	console.assert(typeof checkpointName==='string')
+	console.assert(window.checkpointExists(checkpointName),'Checkpoint "'+checkpointName+'" doesnt exist!')
+	window.setStateFromDeltaIDArray(['initial',window.checkpointNameToDeltaId(checkpointName)])
+}
 
 const tools={
 	async pour()
@@ -552,21 +631,53 @@ const tools={
 			alert("You didn't click on an item, so you didn't click on a specific position. Cancelled moving item '"+itemId+"'")
 			return
 		}
-		alert("Moving the item called '"+itemId+"' to position:\n"+window.djson.stringify(position))
-		window.addLinesToConfigString(['deltas',deltaId,itemId,'transform','position','x '+position.x,'y '+position.y,'z '+position.z].join('\t'))
+		else
+		{
+			alert("Moving the item called '"+itemId+"' to position:\n"+window.djson.stringify(position))
+			window.addLinesToConfigString(['deltas', deltaId, itemId, 'transform', 'position', 'x '+position.x, 'y '+position.y, 'z '+position.z].join('\t'))
+		}
 	},
 	async add()
 	{
 		const itemType=await selectionDialog("What kind of item do you want to add?",'simpleBeaker mesh'.split(' '))
-		const itemName=itemType+"_"+window.randomCharacters(3)
-		console.assert(!(itemName in window.config.items),'Hash collision! This is a highly improbable, but technically possible error')
-		window.items[itemName]=window.modules[itemType](itemName)//This code was borrowed from config.js. We should refactor this to make a unified method for adding items.
-		window.addLinesToConfigString(['items',itemName,itemType].join('\t'))
+		const itemId=itemType+"_"+window.randomCharacters(3)
+		console.assert(!(itemId in window.config.items),'Hash collision! This is a highly improbable, but technically possible error')
+		window.items[itemId]=window.modules[itemType](itemId)//This code was borrowed from config.js. We should refactor this to make a unified method for adding items.
+		window.addLinesToConfigString('items	'+itemId+' '+itemType)
 		window.requestRender()
+
+		//Choose initial position
+		alert("Please click on where you would like to move this item to\n(This item is called '"+itemId+"')")
+		const position=await window.getPositionByMouseDown()
+		const deltaId='initial'
+		if(!position)
+		{
+			alert("You didn't click on an item, so you didn't click on a specific position. Cancelled moving item '"+itemId+"'")
+		}
+		else
+		{
+			// alert("Moving the item called '"+itemId+"' to position:\n"+window.djson.stringify(position))
+			window.addLinesToConfigString(['deltas',deltaId,itemId,'transform','position','x '+position.x,'y '+position.y,'z '+position.z].join('\t'))
+		}
+		window.refreshPage()//Apply all missing things to the item like textures etc
 	},
-	async restart()
+	async goto()
 	{
-		if(window.confirm("Are you sure you want to restart the current game?"))
+		//Go to a checkpoint
+		const checkpointName=await selectionDialog('Which checkpoint would you like to go to?',window.getAllCheckpointNames())
+		window.goToCheckpointByName(checkpointName)
+		alert("We are now at checkpoint '"+checkpointName+"'")
+	},
+	async mark()
+	{
+		//Mark a checkpoint
+		const checkpointName=await textDialog('What would you like to call this checkpoint?',{condition:window.isNamespaceable})
+		window.addCheckpoint(checkpointName)
+		alert("Added checkpoint '"+checkpointName+"'")
+	},
+	async reset()
+	{
+		if(window.confirm("Are you sure you want to reset the current game?"))
 		{
 			window.setStateFromDeltaIDArray(['initial'])
 			window.requestRender()
@@ -578,7 +689,7 @@ const tools={
 
 function toolsDialog()
 {
-	async function toolsDialog()
+	async function toolsDialogHelper()
 	{
 		const selectedTool=tools[await selectionDialog("Select a tool",Object.keys(tools))]
 		if(selectedTool)
@@ -590,22 +701,22 @@ function toolsDialog()
 			alert("Cancelled using a tool")
 		}
 	}
-	toolsDialog()
+	toolsDialogHelper()
 }
 
 function viewState()
 {
-	alert("Current state:\n"+window.getSimplifiedStateDeltaStack())
+	alert("Current state:\n"+window.getSimplifiedStateDeltaIdStack())
 }
 
 function handlePopState()
 {
 	// viewState()
-	let simplifiedStateDeltaStack=window.getSimplifiedStateDeltaStack()
+	let simplifiedStateDeltaStack=window.getSimplifiedStateDeltaIdStack()
 	if(window.confirm("Would you like to pop "+ simplifiedStateDeltaStack[simplifiedStateDeltaStack.length-1]+" from the state stack?\nCurrent state: "+simplifiedStateDeltaStack))
 	{
 		window.popDeltaIDFromStateStack()
-		window.setStateFromDeltaIDArray(window.getSimplifiedStateDeltaStack())
+		window.setStateFromDeltaIDArray(window.getSimplifiedStateDeltaIdStack())
 		window.requestRender()
 	}
 }
@@ -615,7 +726,7 @@ function handlePushState()
 	async function helper()
 	{
 		// viewState()
-		let simplifiedStateDeltaStack=window.getSimplifiedStateDeltaStack()
+		let simplifiedStateDeltaStack=window.getSimplifiedStateDeltaIdStack()
 		let deltaID              =await selectionDialog("Select a delta to push to the state:", Object.keys(window.config.deltas))
 		if(!deltaID)
 		{
@@ -623,7 +734,7 @@ function handlePushState()
 			return
 		}
 		window.pushDeltaIDToStateStack(deltaID)
-			window.setStateFromDeltaIDArray(window.getSimplifiedStateDeltaStack())
+			window.setStateFromDeltaIDArray(window.getSimplifiedStateDeltaIdStack())
 			window.requestRender()
 	}
 	helper()

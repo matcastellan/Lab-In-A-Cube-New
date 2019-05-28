@@ -1,0 +1,174 @@
+preview	height 50	type djson	mode sublime	numbers true
+
+geometries	simpleBeakerFluid ./Assets/Models/SimpleBeaker/Fluid.obj
+geometries	simpleBeakerBeaker ./Assets/Models/SimpleBeaker/Beaker.obj
+geometries	dog ./Assets/dog.obj
+geometries	flask ./Assets/flask.obj
+textures	dog ./Assets/dog.jpg
+textures	weird ./Assets/weird.jpg
+textures	blank ./Assets/blank.png
+sounds	woof ./Assets/Sounds/Woof.mp3
+sounds	nyan ./Assets/Sounds/Nyan.mp3
+sounds	sadness ./Assets/Sounds/Sadviolin.mp3
+
+items	pointLight light
+deltas	initial	pointLight	position	z 10	y 10
+deltas	initial	sky	sunX 0.7	sunY 0.1
+deltas	initial	camera	fov 40	transform	position	y 7	z 30
+deltas	initial	scene	ambience	intensity .2
+
+items	title label
+deltas	initial	title
+	size 4
+	text Dilution Lab
+	transform	position	y 12
+
+~mistakes
+	deltas	oops~A~B
+		overlay	text Oops, you're not supposed to drag ~A~ to ~B~ yet! That messes up the lab...please try again!
+		scene	transitions	auto	delta initial	time 2
+	deltas	initial	scene	transitions	drag	A	B	delta oops~A~B	time 3
+	deltas	initial	scene	transitions	drag	A	A	delta none
+	deltas	initial	scene	transitions	drag	B	B	delta none
+	~
+		@	A X
+		@	B X
+		//	~
+			//	@	X b1
+			//	@	X b2
+			//	@	X b3
+			//	@	X b4
+			//	@	X b5
+			//	@	X b6
+			//	@	X b7
+
+~labels
+	 Meant to label items by their names
+	items	label_~PARENT label
+	deltas	initial	label_~PARENT	text PARENT	parent PARENT	xray true
+		transform	position	y 1	 <-- Shift the label up a bit
+	~
+		//	@	PARENT b1
+
+~beakers
+	~beaker_items
+		items	ID simpleBeaker
+		deltas	initial	ID
+			transform	position	x ID~_POS_X	y ID~_POS_Y	z ID~_POS_Z
+			transform	rotation	x ID~_ROT_X	y ID~_ROT_Y	z ID~_ROT_Z
+			material	modes	phong	opacity .2
+			fluid	transform	scale	y ID~_LEVEL
+		~
+			@	ID b1
+			@	ID b2
+	~
+		settings
+			ID~_ROT_X 0	ID~_ROT_Y 0	ID~_ROT_Z 0
+			ID~_POS_X X	ID~_POS_Y Y	ID~_POS_Z Z
+			ID~_LEVEL LEVEL
+		//	~
+		//		@	ID b1	X 1		Y 2		Z 3		LEVEL 1
+		//		@	ID b2	X 4		Y 5		Z 6		LEVEL 0
+	~pouring
+
+		 Creating the animation deltas:
+		deltas	DELTA_PREFIX~_0		SRC_ITEM_ID				transform	position						y SRC_TARG_POS_Y
+		deltas	DELTA_PREFIX~_1		SRC_ITEM_ID				transform	position	x SRC_TARG_POS_X						z SRC_TARG_POS_Z
+		deltas	DELTA_PREFIX~_2		SRC_ITEM_ID				transform	rotation	x SRC_TARG_ROT_X	y SRC_TARG_ROT_Y	z SRC_TARG_ROT_Z
+		deltas	DELTA_PREFIX~_3		DST_ITEM_ID		fluid	visible DST_TARG_LEVEL
+		deltas	DELTA_PREFIX~_3		SRC_ITEM_ID		fluid	transform	scale							y SRC_TARG_LEVEL
+		deltas	DELTA_PREFIX~_3		DST_ITEM_ID		fluid	transform	scale							y DST_TARG_LEVEL
+		deltas	DELTA_PREFIX~_3		DST_ITEM_ID		fluid	material	modes	phong	color	r DST_RED	g DST_GREEN	b DST_BLUE
+		deltas	DELTA_PREFIX~_4		SRC_ITEM_ID				transform	rotation	x SRC_INIT_ROT_X	y SRC_INIT_ROT_Y	z SRC_INIT_ROT_Z
+		deltas	DELTA_PREFIX~_4		SRC_ITEM_ID		fluid	visible SRC_TARG_LEVEL
+		deltas	DELTA_PREFIX~_5		SRC_ITEM_ID				transform	position	x SRC_INIT_POS_X						z SRC_INIT_POS_Z
+		deltas	_TO					SRC_ITEM_ID				transform	position						y SRC_INIT_POS_Y
+		 Prevent the user from doing this twice:
+		deltas	_TO		scene	transitions	drag	SRC_ITEM_ID		DST_ITEM_ID		delta none
+		 Linking all the animation deltas together:
+		deltas	DELTA_PREFIX~_0		scene	transitions		auto	time DELTA_TIME		delta DELTA_PREFIX~_1
+		deltas	DELTA_PREFIX~_1		scene	transitions		auto	time DELTA_TIME		delta DELTA_PREFIX~_2
+		deltas	DELTA_PREFIX~_2		scene	transitions		auto	time DELTA_TIME		delta DELTA_PREFIX~_3
+		deltas	DELTA_PREFIX~_3		scene	transitions		auto	time DELTA_TIME		delta DELTA_PREFIX~_4
+		deltas	DELTA_PREFIX~_4		scene	transitions		auto	time DELTA_TIME		delta DELTA_PREFIX~_5
+		deltas	DELTA_PREFIX~_5		scene	transitions		auto	time DELTA_TIME		delta _TO
+		 Adding the trigger (where the user clicks/drags):
+		deltas	_FROM	scene	transitions	drag	SRC_ITEM_ID		DST_ITEM_ID		delta DELTA_PREFIX~_0	time DELTA_TIME
+		~
+			settings	DELTA_TIME 1
+			@
+				DELTA_PREFIX pour_~ID1~_to_~ID2
+				SRC_ITEM_ID ID1		DST_ITEM_ID ID2
+				SRC_TARG_LEVEL LV1	DST_TARG_LEVEL LV2
+				SRC_INIT_POS_X ID1~_POS_X		SRC_INIT_ROT_X ID1~_ROT_X		SRC_TARG_POS_X ID2~_POS_X					SRC_TARG_ROT_X ID1~_ROT_X
+				SRC_INIT_POS_Y ID1~_POS_Y		SRC_INIT_ROT_Y ID1~_ROT_Y		SRC_TARG_POS_Y ID2~_POS_Y~~+~POUR_HEIGHT	SRC_TARG_ROT_Y ID1~_ROT_Y
+				SRC_INIT_POS_Z ID1~_POS_Z		SRC_INIT_ROT_Z ID1~_ROT_Z		SRC_TARG_POS_Z ID2~_POS_Z					SRC_TARG_ROT_Z ID1~_ROT_Z~~+180
+				DST_RED R		DST_GREEN G			DST_BLUE B
+				_FROM FROM
+				_TO TO
+			~
+				settings	POUR_HEIGHT 7
+				//	@	ID1 b1	ID2 b2	LV1 0	LV2 1	FROM initial
+				//	@	ID1 b2	ID2 b3	LV1 0	LV2 1	FROM initial
+
+ Creating and initializing beakers:
+
+~beakers	~beaker_items	~	@	ID b1
+~beakers	~	settings	~	@	ID b1	X 0*3-3*3		Y 0		Z 0	LEVEL .5
+deltas	initial	b1	fluid	material	modes	phong	color	r 0.5	g 0.0	b 0.5
+~labels		~	@	PARENT b1
+~mistakes	~	~	@	X b1
+
+~beakers	~beaker_items	~	@	ID b2
+~beakers	~	settings	~	@	ID b2	X 1*3-3*3		Y 0		Z 0	LEVEL .5
+deltas	initial	b2	fluid	material	modes	phong	color	r 1.0	g 1.0	b 1.0
+~labels		~	@	PARENT b2
+~mistakes	~	~	@	X b2
+
+~beakers	~beaker_items	~	@	ID b3
+~beakers	~	settings	~	@	ID b3	X 2*3-3*3		Y 0		Z 0	LEVEL .5
+deltas	initial	b3	fluid	material	modes	phong	color	r 1.0	g 1.0	b 1.0
+~labels		~	@	PARENT b3
+~mistakes	~	~	@	X b3
+
+~beakers	~beaker_items	~	@	ID b4
+~beakers	~	settings	~	@	ID b4	X 3*3-3*3		Y 0		Z 0	LEVEL .5
+deltas	initial	b4	fluid	material	modes	phong	color	r 1.0	g 1.0	b 1.0
+~labels		~	@	PARENT b4
+~mistakes	~	~	@	X b4
+
+~beakers	~beaker_items	~	@	ID b5
+~beakers	~	settings	~	@	ID b5	X 4*3-3*3		Y 0		Z 0	LEVEL .5
+deltas	initial	b5	fluid	material	modes	phong	color	r 1.0	g 1.0	b 1.0
+~labels		~	@	PARENT b5
+~mistakes	~	~	@	X b5
+
+~beakers	~beaker_items	~	@	ID b6
+~beakers	~	settings	~	@	ID b6	X 5*3-3*3		Y 0		Z 0	LEVEL .5
+deltas	initial	b6	fluid	material	modes	phong	color	r 1.0	g 1.0	b 1.0
+~labels		~	@	PARENT b6
+~mistakes	~	~	@	X b7
+
+~beakers	~beaker_items	~	@	ID b7
+~beakers	~	settings	~	@	ID b7	X 6*3-3*3		Y 0		Z 0	LEVEL .5
+deltas	initial	b7	fluid	material	modes	phong	color	r 1.0	g 1.0	b 1.0
+~labels		~	@	PARENT b7
+~mistakes	~	~	@	X b7
+
+ Adding pouring animations:
+~beakers	~pouring	~	~	@	ID1 b1	ID2 b2	LV1 .25	LV2 .75	FROM initial	TO step1	R 1*.5     +0.5*.5     		G 1*.5     +0*.5     	B 1*.5     +0.5*.5
+~beakers	~pouring	~	~	@	ID1 b2	ID2 b3	LV1 .5	LV2 .75	FROM step1		TO step2	R 1*.75    +0.5*.25    		G 1*.75    +0*.25    	B 1*.75    +0.5*.25
+~beakers	~pouring	~	~	@	ID1 b3	ID2 b4	LV1 .5	LV2 .75	FROM step2		TO step3	R 1*.825   +0.5*.125   		G 1*.825   +0*.125   	B 1*.825   +0.5*.125
+~beakers	~pouring	~	~	@	ID1 b4	ID2 b5	LV1 .5	LV2 .75	FROM step3		TO step4	R 1*.9125  +0.5*.0625  		G 1*.9125  +0*.0625  	B 1*.9125  +0.5*.0625
+~beakers	~pouring	~	~	@	ID1 b5	ID2 b6	LV1 .5	LV2 .75	FROM step4		TO step5	R 1*.95625 +0.5*.03125 		G 1*.95625 +0*.03125 	B 1*.95625 +0.5*.03125
+~beakers	~pouring	~	~	@	ID1 b6	ID2 b7	LV1 .5	LV2 .75	FROM step5		TO step6	R 1*.978125+0.5*.015625		G 1*.978125+0*.015625	B 1*.978125+0.5*.015625
+
+ Add narration to each step in the animation:
+deltas	initial	overlay	text Please dilute b1 into b2
+deltas	step1	overlay	text Next, dilute b2 into b3
+deltas	step2	overlay	text Next, dilute b3 into b4
+deltas	step3	overlay	text Next, dilute b4 into b5
+deltas	step4	overlay	text Next, dilute b5 into b6
+deltas	step5	overlay	text Next, dilute b6 into b7
+deltas	step6	overlay	text You've finished the lab!
+deltas	initial	sky	turbidity 0.8

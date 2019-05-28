@@ -5,9 +5,9 @@ let modules={
 	{
 		//We don't require ID as an argument, because this method might be called simply to get its structure
 		const materials ={
-			basic:new THREE.MeshBasicMaterial({color: 0xfffff, wireframe: true }),//color.r/g/b, wireframe,
-			phong:new THREE.MeshPhongMaterial(),//color.r/g/b
-			standard:new THREE.MeshStandardMaterial(),
+			basic   :new THREE.MeshBasicMaterial   ({color: 0xfffff, wireframe: true }),//color.r/g/b, wireframe,
+			phong   :new THREE.MeshPhongMaterial   (                                  ),//color.r/g/b
+			standard:new THREE.MeshStandardMaterial(                                  ),
 		}
 		let geometry='box'
 		let material='basic'

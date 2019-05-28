@@ -726,7 +726,7 @@ function getStateDeltaStack()
 {
 	return stateDeltaStack
 }
-function getSimplifiedStateDeltaStack()
+function getSimplifiedStateDeltaIdStack()
 {
 	return uniqueFromRight(stateDeltaStack)
 }
@@ -744,7 +744,7 @@ function setStateFromDeltaIDSpaceSplitString(deltaIdsSeparatedBySpaces)
 function refreshStateFromConfig()
 {
 	// reloadAssetsFromConfig()
-	setStateFromDeltaIDArray(getSimplifiedStateDeltaStack())
+	setStateFromDeltaIDArray(getSimplifiedStateDeltaIdStack())
 	// printDeltaStack()
 }
 function printDeltaStack()
@@ -773,7 +773,7 @@ function requestRender({doRefreshStateFromConfig=false}={})
 
 window.getMostRecentDeltaId=function()
 {
-	return getSimplifiedStateDeltaStack().pop()
+	return getSimplifiedStateDeltaIdStack().pop()
 }
 function render()
 {

@@ -676,3 +676,22 @@ function randomCharacters(length,{characters='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefgh
 	}
 	return result;
 }
+
+function isNamespaceable(text)
+{
+	//Boolean function
+	//Return true iff text is alphanumeric (while also allowing '_')
+	//EXAMPLES:
+	// isNamespaceable("aosdk")		--->	true
+	// isNamespaceable("aosd_k")	--->	true
+	// isNamespaceable("aosd_3k")	--->	true
+	// isNamespaceable("aosd_3[k")	--->	false
+	// isNamespaceable("")			--->	false
+	// isNamespaceable("10923")		--->	true
+	// isNamespaceable("df923")		--->	true
+	// isNamespaceable("dfgfg923")	--->	true
+	// isNamespaceable("df_923")	--->	true
+	// isNamespaceable("df_92_3")	--->	true
+	// isNamespaceable("2df_92_3")	--->	true
+	return text.match(/^[A-Za-z0-9_]+$/)!==null
+}
