@@ -532,7 +532,10 @@ window.goToCheckpointByName=function(checkpointName)
 {
 	console.assert(typeof checkpointName==='string')
 	console.assert(window.checkpointExists(checkpointName),'Checkpoint "'+checkpointName+'" doesnt exist!')
-	window.setStateFromDeltaIDArray(['initial',window.checkpointNameToDeltaId(checkpointName)])
+	let checkpointDeltaId=window.checkpointNameToDeltaId(checkpointName)
+	window.pushDeltaIDToStateStack(checkpointDeltaId)
+	window.setStateFromDeltaIDArray(['initial',checkpointDeltaId])
+	window.requestRender()
 }
 
 const tools={
@@ -683,6 +686,11 @@ const tools={
 			window.requestRender()
 		}
 	},
+	async trans()
+	{
+		//Add a transition to a checkpoint, or create a new checkpoint and transition to that instead
+		alert('Please select ')
+	}
 
 
 }

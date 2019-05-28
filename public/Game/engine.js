@@ -716,6 +716,11 @@ function autoIsPending(currentState=tween.delta)
 const stateDeltaStack=[]//This is referenced by getters/setters in config
 function pushDeltaIDToStateStack(deltaID)
 {
+	if(!deltaID)
+	{
+		console.assert(false,'deltaID is empty! This is not allowed, skipping pushing it to the stack! deltaID=',deltaID)
+		return
+	}
 	stateDeltaStack.push(deltaID)
 }
 function popDeltaIDFromStateStack()
