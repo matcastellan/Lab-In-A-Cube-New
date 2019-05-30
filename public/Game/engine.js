@@ -463,7 +463,7 @@ const tween={
 		requestRender()
 	},
 }
-
+window.tween=tween
 
 function getDeltaInheritanceChainString(rootDeltaID)
 {

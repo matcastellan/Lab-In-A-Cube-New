@@ -1,5 +1,4 @@
 let defaultConfig=`preview	height 75	type djson	mode sublime	numbers true
-preview	height 75	type djson	mode sublime	numbers true
 
 ~default_imports
 	 Import geometries
@@ -18,6 +17,7 @@ preview	height 75	type djson	mode sublime	numbers true
 
 ~default_light
 	items	l1,l2,l3,l4,l5,l6 light
+	deltas	initial	l1,l2,l3,l4,l5,l6	castShadow true
 	deltas	initial	l1	position	y 10
 	deltas	initial	l2	position	x 10	y 10	z -6
 	deltas	initial	l3	position	x -10	y 10	z -6
@@ -42,6 +42,7 @@ preview	height 75	type djson	mode sublime	numbers true
 	deltas	initial	table_top		transform	position	y -1.995	 <-- Place the top of the table (which shows the grid) slightly above the 
 	deltas	initial	table_bottom	material	modes	standard	color						r .5		g 0.5	b 0.5
 	deltas	initial	table_top		material	modes	standard	wireframe true	emissive	r -0.7	g 0.1	b 1.3
+	deltas	initial	table_bottom	receiveShadow true
 
 ~default_sky
 	deltas	initial	sky	luminance 1.1

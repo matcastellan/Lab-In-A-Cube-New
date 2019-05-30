@@ -450,7 +450,7 @@ async function textDialog({promptText='',condition=text=>text!=undefined,cancell
 	}
 }
 
-window.numberDialog=async function({promptText='',min=-1/0,max=1/0}={})
+window.numberDialog=async function({promptText='',min=-1/0,max=1/0,...kwargs}={})
 {
 	function isNumeric(text)
 	{
@@ -463,7 +463,7 @@ window.numberDialog=async function({promptText='',min=-1/0,max=1/0}={})
 		const n=Number(text)
 		return n<=max && n>=min
 	}
-	return Number(await textDialog({condition:isValid, promptText:promptText+'\n'+'Please choose a number between '+min+' and '+max}))
+	return Number(await textDialog({condition:isValid, promptText:promptText+'\n'+'Please choose a number between '+min+' and '+max,...kwargs}))
 }
 
 function displayHelp(help)
@@ -557,56 +557,124 @@ window.goToCheckpointByName        =function(checkpointName)
 
 window.selectCheckpoint=function(){}//TODO implement this
 
+
 const tools={
-	async pour()
+	async pour({pour_height=6.5}={})
 	{
 		alert("Please click and drag from the beaker you wish to pour from to the beaker you wish to pour into")
-		const [firstItem,secondItem]=await window.getItemIdPairByDragging()
+		const [firstItemId,secondItemId]=await window.getItemIdPairByDragging()
+		const config=window.config
+		if(config.items[firstItemId]!=='simpleBeaker')
+		{
+			alert("Cancelling pour operation, because the first item you selected ("+firstItemId+") is not a beaker and therefore cannot be poured from")
+			return
+		}
+		if(config.items[secondItemId]!=='simpleBeaker')
+		{
+			alert("Cancelling pour operation, because the second item you selected ("+secondItemId+") is not a beaker and therefore cannot be poured into")
+			return
+		}
+		// const firstItem =items[firstItemId]
+		// const secondItem=items[secondItemId]
+
 		// const firstItem =await selectionDialog("Which item would you like to pour stuff from?",window.allItemIdsWithTransform())
 		// const secondItem=await selectionDialog("Which item would you like to pour stuff into?",window.allItemIdsWithTransform())
-		const pourDeltas_prefix=deltaDialog("What should the new animation sequence be called?").trim()
-		alert("Implement pouring from "+firstItem+" to "+secondItem)
-		let originalFirstItemRotation =window.deltas.soaked(window.items[firstItem ], {transform: {rotation: {/*x: null, y: null, */z: null}}})
-		let originalFirstItemPosition =window.deltas.soaked(window.items[firstItem ], {transform: {position: {x: null, y: null, z: null}}})
-		let firstItemRotation =window.deltas.soaked(window.items[firstItem ], {transform: {rotation: {/*x: null, y: null,*/ z: null}}})//For the pouring delta
-		let secondItemPosition=window.deltas.soaked(window.items[secondItem], {transform: {position: {x: null, y: null, z: null}}})//For the pouring delta
+		const pourDeltas_prefix='pour.'+firstItemId+'.to.'+secondItemId+'.from.'+window.getMostRecentDeltaId()+'_'//deltaDialog("What should the new animation sequence be called?").trim()
+		// alert("Implement pouring from "+firstItemId+" to "+secondItemId)
+		let originalFirstItemRotation =window.deltas.soaked(window.items[firstItemId ], {transform: {rotation: {/*x: null, y: null, */z: null}}})
+		let originalFirstItemPosition =window.deltas.soaked(window.items[firstItemId ], {transform: {position: {x: null, y: null, z: null}}})
+		let firstItemRotation =window.deltas.soaked(window.items[firstItemId ], {transform: {rotation: {/*x: null, y: null,*/ z: null}}})//For the pouring delta
+		let secondItemPosition=window.deltas.soaked(window.items[secondItemId], {transform: {position: {x: null, y: null, z: null}}})//For the pouring delta
 
-		secondItemPosition.transform.position.y+=2
+		secondItemPosition.transform.position.y+=pour_height
 		firstItemRotation.transform.rotation.z+=180
 
-		let pourDeltas_pick_up       =pourDeltas_prefix+'_0_pick_up'       .trim()//Trim just in case I put a space on the end by accident...
-		let pourDeltas_move_to_target=pourDeltas_prefix+'_1_move_to_target'.trim()//Trim just in case I put a space on the end by accident...
-		let pourDeltas_rotate        =pourDeltas_prefix+'_2_rotate'        .trim()//Trim just in case I put a space on the end by accident...
-		let pourDeltas_rotate_back   =pourDeltas_prefix+'_3_rotate_back'   .trim()//Trim just in case I put a space on the end by accident...
-		let pourDeltas_move_back     =pourDeltas_prefix+'_4_move_back'     .trim()//Trim just in case I put a space on the end by accident...
-		let pourDeltas_put_down      =pourDeltas_prefix+'_5_put_down'      .trim()//Trim just in case I put a space on the end by accident...
+		const state          =window.tween.delta
+
+		const firstState     =state[firstItemId ]
+		const secondState    =state[secondItemId]
+
+		const firstFillLevel =firstState .fluid.transform.scale.y
+		const secondFillLevel=secondState.fluid.transform.scale.y
+		console.warn(firstFillLevel,secondFillLevel)
+
+		const firstFillColor =firstState .fluid.material.modes[firstState .fluid.material.mode].color
+		const secondFillColor=secondState.fluid.material.modes[secondState.fluid.material.mode].color
+
+		const maxPourLevel   =Math.min(1-secondFillLevel, firstFillLevel)//Don't let them pour more fluid than we have, or pour more fluid than the second beaker can hold
+		const pourLevel      =await window.numberDialog({promptText:"How much fluid would you like to pour?",min:0,max: maxPourLevel,cancellable:false})
+		const newSecondFillLevel   =pourLevel+secondFillLevel
+		const newFirstFillLevel=firstFillLevel-pourLevel
+
+		console.warn("LEVELS: ",newSecondFillLevel,newFirstFillLevel)
+
+		const newColorAlpha  =secondFillLevel===0?1:pourLevel/newSecondFillLevel//More alpha ---> more color change. The color of the new liquid is proportional to a mix of the previous colors. The boolean condition is to avoid any possible division by zero errors.
+
+		const newColor       =JSON.parse(JSON.stringify(window.deltas.blended(secondFillColor,firstFillColor,newColorAlpha)))
+
+		let pourDeltas_pick_up       =pourDeltas_prefix+'_0'.trim()//Trim just in case I put a space on the end by accident...
+		let pourDeltas_move_to_target=pourDeltas_prefix+'_1'.trim()//Trim just in case I put a space on the end by accident...
+		let pourDeltas_rotate        =pourDeltas_prefix+'_2'.trim()//Trim just in case I put a space on the end by accident...
+		let pourDeltas_pour          =pourDeltas_prefix+'_3'.trim()//Trim just in case I put a space on the end by accident...
+		let pourDeltas_rotate_back   =pourDeltas_prefix+'_4'.trim()//Trim just in case I put a space on the end by accident...
+		let pourDeltas_move_back     =pourDeltas_prefix+'_5'.trim()//Trim just in case I put a space on the end by accident...
+		let pourDeltas_put_down      =pourDeltas_prefix+'_6'.trim()//Trim just in case I put a space on the end by accident...
 		function autoTo(deltaId)
 		{
 			return {scene:{transitions:{auto:{delta:deltaId,time:1}}}}
 		}
 
 		window.addLinesToConfigString(window.djson.stringify({
-			"":"Pouring "+firstItem+" to "+secondItem+" via delta "+pourDeltas_prefix,//A comment
+			"":"Pouring "+firstItemId+" to "+secondItemId+" via delta "+pourDeltas_prefix,//A comment
 			deltas:{
 				[window.getMostRecentDeltaId()]: {
 					// scene:{transitions:{drag:{[firstItem]:{[secondItem]:{delta:pourDeltas_pick_up,time:1}}}}}
-					scene:{transitions:{drag:{[firstItem]:{[secondItem]:{delta:pourDeltas_move_to_target,time:1}}}}}
+					scene:{transitions:{drag:{[firstItemId]:{[secondItemId]:{delta:pourDeltas_move_to_target,time:1}}}}}
 				},
 				// [pourDeltas_pick_up]: {
 				// 	[firstItem]: {transform:{position:{y:secondItemPosition.transform.position.y}}},
 				// 	...autoTo(pourDeltas_move_to_target)
 				// },
 				[pourDeltas_move_to_target]: {
-					[firstItem]: secondItemPosition,
+					[firstItemId]: secondItemPosition,
 					...autoTo(pourDeltas_rotate)
 				},
 				[pourDeltas_rotate]: {
-					[firstItem]: firstItemRotation,
-
+					[firstItemId]: firstItemRotation,
+					...autoTo(pourDeltas_pour)
+				},
+				[pourDeltas_pour]: {
+					[firstItemId]: {
+						fluid: {
+							transform:{
+								scale:{
+									y:newFirstFillLevel
+								}
+							}
+						}
+					},
+					[secondItemId]:{
+						fluid:{
+							visible:Boolean(newSecondFillLevel),
+							transform:{
+								scale:{
+									y:newSecondFillLevel
+								}
+							},
+							material:{
+								modes:{
+									[secondState.fluid.material.mode]:{
+										color:newColor
+									}
+								}
+							}
+						},
+					},
 					...autoTo(pourDeltas_rotate_back)
 				},
 				[pourDeltas_rotate_back]: {
-					[firstItem]: originalFirstItemRotation,
+					[firstItemId]:{... originalFirstItemRotation,							fluid:{visible:Boolean(newFirstFillLevel)}
+					},
 					...autoTo(pourDeltas_put_down)
 					// ...autoTo(pourDeltas_move_back)
 				},
@@ -616,7 +684,16 @@ const tools={
 				// 	...autoTo(pourDeltas_put_down)
 				// },
 				[pourDeltas_put_down]: {
-					[firstItem]: originalFirstItemPosition
+					[firstItemId]: originalFirstItemPosition,
+					scene:{
+						transitions:{
+							drag:{
+								[firstItemId]:{
+									[secondItemId]:'none'
+								}
+							}
+						}
+					}
 				}
 			}
 		}))
@@ -667,7 +744,7 @@ const tools={
 		const itemId=itemType+"_"+window.randomCharacters(3)
 		console.assert(!(itemId in window.config.items),'Hash collision! This is a highly improbable, but technically possible error')
 		window.items[itemId]=window.modules[itemType](itemId)//This code was borrowed from config.js. We should refactor this to make a unified method for adding items.
-		window.addLinesToConfigString('items	'+itemId+' '+itemType)
+		window.addLinesToConfigString('items	'+itemId+' '+itemType+'\ndeltas	initial	'+itemId+'	castShadow true')
 		window.requestRender()
 
 		//Choose initial position
@@ -688,6 +765,83 @@ const tools={
 		}
 		window.refreshPage()//Apply all missing things to the item like textures etc
 	},
+	async label()
+	{
+		alert("Please click the item that you would like to label")
+		const itemId=await window.getItemIdByClicking()
+		const labelItemId='label.'+itemId
+		const text  =await textDialog({promptText:"What would you like it to say?"})
+		const deltaId=window.getMostRecentDeltaId()
+		let lines   =[['deltas',deltaId,labelItemId,'text '+text,].join('\t')]
+		lines.push('items	'+labelItemId+' label')
+		lines.push('deltas	initial	'+labelItemId+'	parent '+itemId)
+		window.addLinesToConfigString(lines.join('\n'))
+		window.requestRender()
+		if(!(labelItemId in window.items))
+			window.refreshPage()//Apply all missing things to the item like textures etc
+	},
+	async text()
+	{
+		const text  =await textDialog({promptText:"What would you the overlay to say?"})
+		const deltaId=window.getMostRecentDeltaId()
+		let lines   =[['deltas',deltaId,'overlay','text '+text,].join('\t')]
+		window.addLinesToConfigString(lines.join('\n'))
+	},
+	async beak()
+	{
+		const itemType="simpleBeaker"//await selectionDialog("What kind of item do you want to add?",'simpleBeaker mesh'.split(' '))
+		const itemId=itemType+"_"+window.randomCharacters(3)
+		console.assert(!(itemId in window.config.items),'Hash collision! This is a highly improbable, but technically possible error')
+		window.items[itemId]=window.modules[itemType](itemId)//This code was borrowed from config.js. We should refactor this to make a unified method for adding items.
+		const colorName=await selectionDialog("What color?",'white blue red green cyan magenta yellow black'.split(' '))
+		if(!colorName)
+		{
+			alert("Add beaker cancelled")
+			return
+		}
+		const colors={
+			'white'  :{r:1,g:1,b:1},
+			'black'  :{r:0,g:0,b:0},
+			'red'    :{r:1,g:0,b:0},
+			'green'  :{r:0,g:1,b:0},
+			'blue'   :{r:0,g:0,b:1},
+			'cyan'   :{r:0,g:1,b:1},
+			'magenta':{r:1,g:0,b:1},
+			'yellow' :{r:1,g:1,b:0},
+		}
+
+		const color=colors[colorName]
+		let lines='items	'+itemId+' '+itemType+'\ndeltas	initial	'+itemId+'	castShadow true'
+		lines+='\n'
+		lines+=['deltas	initial',itemId,'fluid	material	modes	phong	color','r '+color.r,'g '+color.g,'b '+color.b].join('\t')
+		lines+='\n'
+		const level      =await window.numberDialog({promptText:"How much fluid?",min:0,max: 1,cancellable:false})
+		lines+=['deltas	initial',itemId,'fluid	transform	scale','y '+level].join('\t')
+		lines+='\n'
+		lines+=['deltas	initial',itemId,'fluid','visible '+Boolean(level)].join('\t')
+
+
+		window.requestRender()
+
+		//Choose initial position
+		if(window.confirm("Would you like to choose where to put this object now?"))
+		{
+			alert("Please click on where you would like to move this item to\n(This item is called '"+itemId+"')")
+			const position=await window.getPositionByMouseDown()
+			const deltaId='initial'
+			if(!position)
+			{
+				alert("You didn't click on an item, so you didn't click on a specific position. Cancelled moving item '"+itemId+"'")
+			}
+			else
+			{
+				// alert("Moving the item called '"+itemId+"' to position:\n"+window.djson.stringify(position))
+				lines+='\n'+['deltas',deltaId,itemId,'transform','position','x '+position.x,'y '+position.y,'z '+position.z].join('\t')
+			}
+		}
+		window.addLinesToConfigString(lines)
+		window.refreshPage()//Apply all missing things to the item like textures etc
+	},
 	async goto()
 	{
 		//Go to a checkpoint
@@ -705,7 +859,8 @@ const tools={
 			return
 		}
 		window.addCheckpoint(checkpointName)
-		alert("Added checkpoint '"+checkpointName+"'")
+		window.goToCheckpointByName(checkpointName)
+		alert("Added checkpoint '"+checkpointName+"'\nYou are now in this checkpoint")
 	},
 	async reset()
 	{
@@ -834,6 +989,10 @@ function handlePushState()
 	helper()
 }
 
+function Tools()
+{
+
+}
 
 
 const __weAreInAnIframe__=window.location !== window.parent.location
@@ -845,13 +1004,15 @@ function App()
 	}
 	//Lab
 	const [schema, setSchema]=useState(window.getDeltasGuiSchema())
+	const [toolmode, setToolmode]=useState(false)//if toomode is true just show buttons with tools and thats it
 	window.refreshGuiSchema  =()=>setSchema(window.getDeltasGuiSchema())
 	let gameStyle            ={width: '100%', height: '100%', border: '0'}
 	// noinspection HtmlUnknownTarget
 
+	const buttonStyle={filter:"invert(0)",margin:1,opacity:.8}
 	return <div style={{display: 'flex', flexDirection: 'horizontal', width: '25%', height: '100%'}}>
 		<div style={{padding: 10, border: 10, backgroundColor: 'rgba(255,255,255,.3)', flexGrow: 4, display: 'flex', flexDirection: 'column', overflowY: 'scroll', pointerEvents: 'auto'}}>
-			<h1 style={{color: 'white', textAlign: 'center'}}>Lab<sup>3</sup></h1><br/><h4>By Ryan Burgert</h4>
+			<h1 style={{color: 'white', textAlign: 'center'}}>Lab<sup>3</sup></h1><br/><h4>{/*By Ryan Burgert*/}</h4>
 			<br/>
 			{/*<ExpansionPanel style={{borderRadius:30, backgroundColor:'rgba(0,0,0,0)'}}>*/}
 				{/*<ExpansionPanelSummary expandIcon={<ExpandMoreIcon />}>*/}
@@ -863,25 +1024,35 @@ function App()
 						{/*sit amet blandit leo lobortis eget.*/}
 					{/*</Typography>*/}
 				{/*</ExpansionPanelDetails>*/}
-			<Button                   onClick={handleEditCode                     } helptext="(Documentation goes here)"> Edit Djson Code </Button>
-			<Button                   onClick={handleHideEditorGui                } helptext="(Documentation goes here)"> Hide Editor Gui </Button>
-			<Button color="secondary" onClick={handleNewLab                       } helptext="(Documentation goes here)"> New Lab         </Button>
-			<Button color="secondary" onClick={()=>window.saveConfigToServer()    } helptext="(Documentation goes here)"> Save Lab        </Button>
-			<Button color="secondary" onClick={viewMySaves                        } helptext="(Documentation goes here)"> View Saved Labs </Button>
-			<Button color="secondary" onClick={handleLoadConfig                   } helptext="(Documentation goes here)"> Load Lab        </Button>
-			<Button color="secondary" onClick={()=>handleLoadConfig({concat:true})} helptext="(Documentation goes here)"> Combine Labs    </Button>
-			<Button color="primary"   onClick={window.undoEditorChange            } helptext="(Documentation goes here)"> Undo            </Button>
-			<Button color="primary"   onClick={addItemDialogs                     } helptext="(Documentation goes here)"> Add Item        </Button>
-			<Button color="primary"   onClick={addDeltaDialog                     } helptext="(Documentation goes here)"> Add Delta       </Button>
-			<Button color="primary"   onClick={toolsDialog                        } helptext="(Documentation goes here)"> Tools           </Button>
-			<Button color="primary"   onClick={viewState                          } helptext="(Documentation goes here)"> View State      </Button>
-			<Button color="primary"   onClick={handlePopState                     } helptext="(Documentation goes here)"> Pop State       </Button>
-			<Button color="primary"   onClick={handlePushState                    } helptext="(Documentation goes here)"> Push State      </Button>
+			{!toolmode?<>
+			<Button                   style={buttonStyle} onClick={handleEditCode                     } helptext="(Documentation goes here)"> Edit Djson Code </Button>
+			<Button                   style={buttonStyle} onClick={handleHideEditorGui                } helptext="(Documentation goes here)"> Hide Editor Gui </Button>
+			<Button color="secondary" style={buttonStyle} onClick={handleNewLab                       } helptext="(Documentation goes here)"> New Lab         </Button>
+			<Button color="secondary" style={buttonStyle} onClick={()=>window.saveConfigToServer()    } helptext="(Documentation goes here)"> Save Lab        </Button>
+			<Button color="secondary" style={buttonStyle} onClick={viewMySaves                        } helptext="(Documentation goes here)"> View Saved Labs </Button>
+			<Button color="secondary" style={buttonStyle} onClick={handleLoadConfig                   } helptext="(Documentation goes here)"> Load Lab        </Button>
+			<Button color="secondary" style={buttonStyle} onClick={()=>handleLoadConfig({concat:true})} helptext="(Documentation goes here)"> Combine Labs    </Button>
+			<Button color="primary"   style={buttonStyle} onClick={window.undoEditorChange            } helptext="(Documentation goes here)"> Undo            </Button>
+			<Button color="primary"   style={buttonStyle} onClick={addItemDialogs                     } helptext="(Documentation goes here)"> Add Item        </Button>
+			<Button color="primary"   style={buttonStyle} onClick={addDeltaDialog                     } helptext="(Documentation goes here)"> Add Delta       </Button>
+			<Button color="primary"   style={buttonStyle} onClick={toolsDialog                        } helptext="(Documentation goes here)"> Tools           </Button>
+			<Button color="primary"   style={buttonStyle} onClick={viewState                          } helptext="(Documentation goes here)"> View State      </Button>
+			<Button color="primary"   style={buttonStyle} onClick={handlePopState                     } helptext="(Documentation goes here)"> Pop State       </Button>
+			<Button color="primary"   style={buttonStyle} onClick={handlePushState                    } helptext="(Documentation goes here)"> Push State      </Button>
+			<Button color="primary"   style={buttonStyle} onClick={()=>setToolmode(true)                    } helptext="(Documentation goes here)"> Simple Mode      </Button>
 			{/*</ExpansionPanel>*/}
 			<br/>
 			<div style={{width:'100%'}}>
 				<Schema schema={schema}/>
 			 </div>
+			</>
+				:
+				<>
+					<Button color="secondary"   style={buttonStyle} onClick={()=>setToolmode(false)                    } helptext="(Documentation goes here)"> Advanced Mode </Button>
+					{Object.keys(tools).map(toolName=>
+												<Button color="primary"   style={buttonStyle} onClick={tools[toolName]                     } helptext="(Documentation goes here)"> {toolName}       </Button>
+					)}
+				</>}
 		</div>
 	</div>
 }
