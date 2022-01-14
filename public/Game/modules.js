@@ -103,6 +103,23 @@ let modules={
 		light.userData.item=item
 		return item
 	},
+	line(ID){
+		var points = [new THREE.Vector3(-5, 0, 0),new THREE.Vector3(5, 0, 0)]
+		var geometry = new THREE.BufferGeometry().setFromPoints( points )
+		var line = new THREE.Line(geometry, new THREE.LineBasicMaterial({color: 0x000000}))
+		scene.add(line)
+		const item = {
+			ID:ID,
+			threeObject:line,
+			color:attributes.rgb(line.material.color),
+			start: attributes.bufferPosition(line, 0),
+			end: attributes.bufferPosition(line, 3),
+			get parent( ){return parent},
+			set parent(itemID){setParent(line, itemID)}
+		}
+		line.userData.item=item
+		return item
+	},
 	simpleBeaker(ID)
 	{
 		// return modules.mesh(ID)
@@ -300,7 +317,12 @@ mesh,boxItem,simpleBeaker
 		scale				x,y,z,overall 1
 	receiveShadow false
 	castShadow false
-		
+
+line
+	color	r 0	b 0	g 0
+	start	x -5	y,z 0
+	end	x 5	y,z 0
+
 simpleBeaker
 	fluid
 		visible true

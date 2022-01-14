@@ -66,5 +66,25 @@ const attributes=proxies.argumentCountChecker({
 			set b(value){color.b=value},
 		}
 	},
+	bufferPosition(threeObject, i)
+	{
+		return{
+			get x(){return threeObject.geometry.attributes.position.array[i]},
+			get y(){return threeObject.geometry.attributes.position.array[i+1]},
+			get z(){return threeObject.geometry.attributes.position.array[i+2]},
+			set x(value){
+				threeObject.geometry.attributes.position.array[i]=value
+				threeObject.geometry.attributes.position.needsUpdate = true
+			},
+			set y(value){
+				threeObject.geometry.attributes.position.array[i+1]=value
+				threeObject.geometry.attributes.position.needsUpdate = true
+			},
+			set z(value){
+				threeObject.geometry.attributes.position.array[i+2]=value
+				threeObject.geometry.attributes.position.needsUpdate = true
+			},
+		}
+	},
 })
 window.attributes=attributes
